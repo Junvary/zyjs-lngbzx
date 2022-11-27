@@ -7,13 +7,16 @@ import (
 	"net/http"
 )
 
-func BuildHttp(url string, cookieId string, method string, body io.Reader) *goquery.Document {
+func BuildHttp(url string, cookieId string, method string, body io.Reader, formData bool) *goquery.Document {
 	client := http.Client{}
 	req, err := http.NewRequest(method, url, body)
 	if err != nil {
 		log.Fatal(err)
 	}
 	req.Header.Add("Cookie", cookieId)
+	if formData {
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	}
 	res, err := client.Do(req)
 	if err != nil {
 		log.Fatal(err)

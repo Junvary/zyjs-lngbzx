@@ -8,8 +8,8 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"strconv"
-	"unsafe"
 	"zyjs-lngbzx/utils"
 )
 
@@ -28,8 +28,8 @@ type SaveViewRequest struct {
 }
 
 type StartWatch struct {
-	Id     string `json:"id"`
-	Status string `json:"status"`
+	Id     int `json:"id"`
+	Status int `json:"status"`
 }
 
 type Pages struct {
@@ -41,6 +41,7 @@ func Welcome() {
 	fmt.Println("========================================================================")
 	fmt.Println("欢迎使用辽宁-专业技术人员继续教育-观看软件！请先登录，完成选课，并拿到 Cookie ！")
 	fmt.Println("Cookie的获取可通过打开F12并随意找到此网站的一个请求 --> Headers --> Request Headers --> Cookie")
+	fmt.Println("本软件仅供学习交流使用！")
 	fmt.Println("========================================================================")
 
 	fmt.Println("请输入Cookie值(以 JSESSIONID= 开头)")
@@ -57,18 +58,16 @@ func main() {
 	for i := 1; i <= page; i++ {
 		fmt.Println("**********************************************")
 		fmt.Println("开始观看第" + strconv.Itoa(i) + " 页")
-		var resq = &Pages{PageNo: i, PageSize: 12}
-		Len := unsafe.Sizeof(resq)
-		testB := &SliceMock{
-			addr: uintptr(unsafe.Pointer(resq)),
-			cap:  int(Len),
-			len:  int(Len),
-		}
-		data := *(*[]byte)(unsafe.Pointer(testB))
-		docMain := utils.BuildHttp(mainUrl, cookieId, "POST", bytes.NewBuffer(data))
+		//var pageData Pages
+		pageData := url.Values{}
+		pageData.Set("pageNo", strconv.Itoa(i))
+		pageData.Set("pageSize", strconv.Itoa(12))
+		pageDataString := pageData.Encode()
+		pageDataByte := []byte(pageDataString)
+		docMain := utils.BuildHttp(mainUrl, cookieId, "POST", bytes.NewReader(pageDataByte), true)
 		idList := utils.GetClassList(docMain)
 		for k, v := range idList {
-			doc := utils.BuildHttp("https://zyjs.lngbzx.gov.cn/study/resource/info/"+k+"/"+v, cookieId, "GET", nil)
+			doc := utils.BuildHttp("https://zyjs.lngbzx.gov.cn/study/resource/info/"+k+"/"+v, cookieId, "GET", nil, false)
 			GetClassDetail(doc)
 		}
 	}
@@ -106,46 +105,45 @@ func GetClassDetail(doc *goquery.Document) {
 }
 
 func WatchVideo(value, title, length, id string) {
-	url := "https://zyjs.lngbzx.gov.cn/study/resource/saveview"
-	var resq = &SaveViewRequest{json: "{'cid':" + id + ",'source': " + value + ",'position': '','percent': '0'}"}
-	Len := unsafe.Sizeof(resq)
-	testB := &SliceMock{
-		addr: uintptr(unsafe.Pointer(resq)),
-		cap:  int(Len),
-		len:  int(Len),
-	}
-	data := *(*[]byte)(unsafe.Pointer(testB))
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer(data))
+	videoUrl := "https://zyjs.lngbzx.gov.cn/study/resource/saveview"
+	videoData := url.Values{}
+	videoData.Set("json", "{'cid':"+id+",'source': "+value+",'position': '','percent': '0'}")
+	videoDataString := videoData.Encode()
+	videoDataByte := []byte(videoDataString)
+	client := http.Client{}
+	req, err := http.NewRequest("POST", videoUrl, bytes.NewReader(videoDataByte))
 	if err != nil {
 		log.Fatal("观看视频：" + title + " 失败！")
 	}
-	defer req.Body.Close()
-	//fmt.Println(req.Body)
-	body, err := io.ReadAll(req.Body)
+	req.Header.Add("Cookie", cookieId)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8")
+	res, err := client.Do(req)
+	defer res.Body.Close()
+	//fmt.Println(res, res.Body)
+	body, err := io.ReadAll(res.Body)
 	var sw StartWatch
 	_ = json.Unmarshal(body, &sw)
+	//fmt.Println(body, sw)
 	randomId := sw.Id
-	EndWatch(randomId, id, title, length)
+	EndWatch(strconv.Itoa(randomId), id, title, length)
 }
 
 func EndWatch(randomId string, id string, title string, length string) {
-	url := "https://zyjs.lngbzx.gov.cn/study/resource/saveview"
-	var resq = &SaveViewRequest{
-		json: "{'cid':" + id + ",'historyId': " + randomId + ",'position': " + length + ",'len': " + length + ",'position':" + "'822.07' }",
-	}
-	Len := unsafe.Sizeof(resq)
-	testB := &SliceMock{
-		addr: uintptr(unsafe.Pointer(resq)),
-		cap:  int(Len),
-		len:  int(Len),
-	}
-	data := *(*[]byte)(unsafe.Pointer(testB))
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer(data))
+	endUrl := "https://zyjs.lngbzx.gov.cn/study/resource/saveview"
+	videoData := url.Values{}
+	videoData.Set("json", "{'cid':"+id+",'historyId': "+randomId+",'position': "+length+",'len': "+length+",'position':"+"'822.07' }")
+	videoDataString := videoData.Encode()
+	videoDataByte := []byte(videoDataString)
+	client := http.Client{}
+	req, err := http.NewRequest("POST", endUrl, bytes.NewReader(videoDataByte))
+	req.Header.Add("Cookie", cookieId)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	res, err := client.Do(req)
+	defer res.Body.Close()
 	if err != nil {
 		log.Fatal("观看视频：" + title + " 失败！")
 	} else {
 		fmt.Println("观看 " + title + " 完成！")
 		fmt.Println("=============================")
 	}
-	defer req.Body.Close()
 }
