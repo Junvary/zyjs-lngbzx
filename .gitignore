@@ -1,0 +1,21 @@
+.DS_Store
+.thumbs.db
+# Editor directories and files
+go.sum
+.idea
+.vscode
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+main.exe
+
+
+
+
+
+
+
+
+
+
