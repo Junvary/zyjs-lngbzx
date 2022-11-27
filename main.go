@@ -17,24 +17,9 @@ var cookieId string
 var classType int
 var page int
 
-type SliceMock struct {
-	addr uintptr
-	len  int
-	cap  int
-}
-
-type SaveViewRequest struct {
-	json string
-}
-
 type StartWatch struct {
 	Id     int `json:"id"`
 	Status int `json:"status"`
-}
-
-type Pages struct {
-	PageNo   int `json:"pageNo"`
-	PageSize int `json:"pageSize"`
 }
 
 func Welcome() {
